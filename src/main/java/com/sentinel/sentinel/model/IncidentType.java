@@ -3,10 +3,31 @@ package com.sentinel.sentinel.model;
 public enum IncidentType {
 
     NORMAL,
+
+    ACCIDENT,
+
     THEFT,
-    CRASH,
+
+    HIT_AND_RUN,
+
+    ROBBERY,
+
+    CRIME_LINKED,
+
+    VEHICLE_ABANDONED,
+
     OVER_SPEEDING,
+
     TRAFFIC_VIOLATION,
-    CRIME_LINKED
+
+    HARASSMENT,
+
+    SUSPICIOUS_ACTIVITY,
+
+    FIRE,
+
+    MEDICAL_EMERGENCY,
+
+    NATURAL_DISASTER
 
 }

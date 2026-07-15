@@ -30,8 +30,7 @@ public class VehicleService {
     public Optional<IncidentType> determineIncident(
             String numberPlate) {
 
-        Optional<Vehicle> vehicle =
-                repository.findById(numberPlate);
+        Optional<Vehicle> vehicle = repository.findById(numberPlate);
 
         if (vehicle.isEmpty()) {
             return Optional.empty();
@@ -44,7 +43,7 @@ public class VehicleService {
         }
 
         if (v.isAccidentReported()) {
-            return Optional.of(IncidentType.CRASH);
+            return Optional.of(IncidentType.ACCIDENT);
         }
 
         return Optional.of(IncidentType.NORMAL);
@@ -53,20 +52,16 @@ public class VehicleService {
     public IncidentResponse buildIncidentResponse(
             String numberPlate) {
 
-        Vehicle vehicle =
-                repository.findById(numberPlate)
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Vehicle not found"
-                                )
-                        );
+        Vehicle vehicle = repository.findById(numberPlate)
+                .orElseThrow(() ->
+                        new RuntimeException("Vehicle not found"));
 
         IncidentType type;
 
         if (vehicle.isStolen()) {
             type = IncidentType.THEFT;
         } else if (vehicle.isAccidentReported()) {
-            type = IncidentType.CRASH;
+            type = IncidentType.ACCIDENT;
         } else {
             type = IncidentType.NORMAL;
         }
@@ -78,14 +73,12 @@ public class VehicleService {
 
             case THEFT -> {
                 helpline = "100";
-                nextStep =
-                        "Contact nearest police station";
+                nextStep = "Contact nearest police station";
             }
 
-            case CRASH -> {
+            case ACCIDENT -> {
                 helpline = "108";
-                nextStep =
-                        "Dispatch emergency services";
+                nextStep = "Dispatch emergency services";
             }
 
             default -> {
@@ -105,17 +98,12 @@ public class VehicleService {
     public VehicleProfileResponse getVehicleProfile(
             String numberPlate) {
 
-        Vehicle vehicle =
-                repository.findById(numberPlate)
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Vehicle not found"
-                                )
-                        );
+        Vehicle vehicle = repository.findById(numberPlate)
+                .orElseThrow(() ->
+                        new RuntimeException("Vehicle not found"));
 
         long reportCount =
-                reportRepository
-                        .countByVehicleNumber(numberPlate);
+                reportRepository.countByVehicleNumber(numberPlate);
 
         return new VehicleProfileResponse(
 
@@ -138,19 +126,14 @@ public class VehicleService {
     public VehicleHistoryResponse getVehicleHistory(
             String numberPlate) {
 
-        Vehicle vehicle =
-                repository.findById(numberPlate)
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "Vehicle not found"
-                                )
-                        );
+        Vehicle vehicle = repository.findById(numberPlate)
+                .orElseThrow(() ->
+                        new RuntimeException("Vehicle not found"));
 
         List<IncidentReport> reports =
-                reportRepository
-                        .findByVehicleNumberOrderByReportedAtDesc(
-                                numberPlate
-                        );
+                reportRepository.findByVehicleNumberOrderByReportedAtDesc(
+                        numberPlate
+                );
 
         return new VehicleHistoryResponse(
                 vehicle,

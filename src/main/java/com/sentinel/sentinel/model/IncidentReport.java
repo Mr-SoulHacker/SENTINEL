@@ -1,7 +1,6 @@
 package com.sentinel.sentinel.model;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -12,21 +11,27 @@ public class IncidentReport {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String vehicleNumber;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private IncidentCategory category;
 
     @Column(length = 2000)
     private String description;
 
+    @Column(nullable = false)
     private String location;
 
+    @Column(nullable = false)
     private String reportedBy;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ReportStatus status = ReportStatus.OPEN;
 
+    @Column(nullable = false)
     private LocalDateTime reportedAt = LocalDateTime.now();
 
     public IncidentReport() {
@@ -37,12 +42,13 @@ public class IncidentReport {
                           String description,
                           String location,
                           String reportedBy) {
-
         this.vehicleNumber = vehicleNumber;
         this.category = category;
         this.description = description;
         this.location = location;
         this.reportedBy = reportedBy;
+        this.status = ReportStatus.OPEN;
+        this.reportedAt = LocalDateTime.now();
     }
 
     public Long getId() {

@@ -37,11 +37,6 @@ public class IncidentService {
         return incidentRepository.findByType(IncidentType.THEFT);
     }
 
-    public List<Incident> getCrashes() {
-        return incidentRepository.findByType(IncidentType.CRASH);
-    }
-
     public List<Incident> getAccidents() {
-        return incidentRepository.findByType(IncidentType.CRASH);
-    }
-}
+        return incidentRepository.findByType(IncidentType.ACCIDENT);
+    }}

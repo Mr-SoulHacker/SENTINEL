@@ -1,14 +1,15 @@
 package com.sentinel.sentinel.service;
 
+import com.sentinel.sentinel.dto.AuthResponse;
+import com.sentinel.sentinel.dto.LoginRequest;
 import com.sentinel.sentinel.dto.RegisterRequest;
+import com.sentinel.sentinel.model.Role;
 import com.sentinel.sentinel.model.User;
 import com.sentinel.sentinel.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.sentinel.sentinel.dto.AuthResponse;
-import com.sentinel.sentinel.dto.LoginRequest;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 @Service
 public class AuthService {
@@ -18,11 +19,12 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
 
-    public AuthService(UserRepository userRepository,
-                       PasswordEncoder passwordEncoder,
-                       AuthenticationManager authenticationManager,
-                       JwtService jwtService) {
-
+    public AuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            AuthenticationManager authenticationManager,
+            JwtService jwtService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
@@ -31,20 +33,35 @@ public class AuthService {
 
     public String register(RegisterRequest request) {
 
-        if (userRepository.existsByUsername(request.getUsername())) {
+        String username = request.getUsername().trim();
+        String email = request.getEmail().trim().toLowerCase();
+
+        // Check duplicate username
+        if (userRepository.existsByUsername(username)) {
             return "Username already exists";
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        // Check duplicate email
+        if (userRepository.existsByEmail(email)) {
             return "Email already exists";
         }
 
         User user = new User();
 
-        user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole());
+        user.setUsername(username);
+        user.setEmail(email);
+
+        // Store encoded password
+        user.setPassword(
+                passwordEncoder.encode(
+                        request.getPassword()
+                )
+        );
+
+        // Public registration always creates a CITIZEN.
+        // Client cannot create an ADMIN account.
+        user.setRole(Role.CITIZEN);
+
         user.setEnabled(true);
 
         userRepository.save(user);
@@ -61,11 +78,18 @@ public class AuthService {
                 )
         );
 
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+        User user = userRepository
+                .findByUsername(request.getUsername())
+                .orElseThrow(
+                        () -> new RuntimeException(
+                                "User not found"
+                        )
+                );
 
-        String token = jwtService.generateToken(user.getUsername());
+        String token =
+                jwtService.generateToken(
+                        user.getUsername()
+                );
 
         return new AuthResponse(
                 true,
@@ -75,5 +99,4 @@ public class AuthService {
                 user.getRole().name()
         );
     }
-
 }
