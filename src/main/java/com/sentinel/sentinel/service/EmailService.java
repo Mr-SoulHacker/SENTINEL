@@ -1,6 +1,5 @@
 package com.sentinel.sentinel.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sentinel.sentinel.model.IncidentReport;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -10,16 +9,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.List;
-import java.util.Map;
 
 @Service
 public class EmailService {
-
-    private final String brevoApiKey;
-    private final String adminEmail;
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
 
     private static final String BREVO_API_URL =
             "https://api.brevo.com/v3/smtp/email";
@@ -27,14 +19,16 @@ public class EmailService {
     private static final String SENDER_EMAIL =
             "app.sentinel.support@gmail.com";
 
+    private final String brevoApiKey;
+    private final String adminEmail;
+    private final HttpClient httpClient;
+
     public EmailService(
             @Value("${brevo.api.key}") String brevoApiKey,
-            @Value("${sentinel.admin.email}") String adminEmail,
-            ObjectMapper objectMapper) {
+            @Value("${sentinel.admin.email}") String adminEmail) {
 
         this.brevoApiKey = brevoApiKey;
         this.adminEmail = adminEmail;
-        this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newHttpClient();
     }
 
@@ -99,29 +93,25 @@ public class EmailService {
 
         try {
 
-            Map<String, Object> payload = Map.of(
-                    "sender", Map.of(
-                            "name", "SENTINEL",
-                            "email", SENDER_EMAIL
-                    ),
-                    "to", List.of(
-                            Map.of("email", recipient)
-                    ),
-                    "subject", subject,
-                    "htmlContent", html
-            );
-
-            String requestBody =
-                    objectMapper.writeValueAsString(payload);
+            String jsonBody =
+                    "{" +
+                            "\"sender\":{" +
+                            "\"name\":\"SENTINEL\"," +
+                            "\"email\":\"" + escapeJson(SENDER_EMAIL) + "\"" +
+                            "}," +
+                            "\"to\":[{" +
+                            "\"email\":\"" + escapeJson(recipient) + "\"" +
+                            "}]," +
+                            "\"subject\":\"" + escapeJson(subject) + "\"," +
+                            "\"htmlContent\":\"" + escapeJson(html) + "\"" +
+                            "}";
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(BREVO_API_URL))
                     .header("accept", "application/json")
                     .header("api-key", brevoApiKey)
                     .header("content-type", "application/json")
-                    .POST(
-                            HttpRequest.BodyPublishers.ofString(requestBody)
-                    )
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
             HttpResponse<String> response =
@@ -160,5 +150,19 @@ public class EmailService {
                             e.getMessage()
             );
         }
+    }
+
+    private String escapeJson(String value) {
+
+        if (value == null) {
+            return "";
+        }
+
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }
