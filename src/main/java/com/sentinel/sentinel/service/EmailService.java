@@ -1,70 +1,67 @@
 package com.sentinel.sentinel.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sentinel.sentinel.model.IncidentReport;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private final String brevoApiKey;
     private final String adminEmail;
-    private final String senderEmail;
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
+
+    private static final String BREVO_API_URL =
+            "https://api.brevo.com/v3/smtp/email";
+
+    private static final String SENDER_EMAIL =
+            "app.sentinel.support@gmail.com";
 
     public EmailService(
-            JavaMailSender mailSender,
+            @Value("${brevo.api.key}") String brevoApiKey,
             @Value("${sentinel.admin.email}") String adminEmail,
-            @Value("${spring.mail.username}") String senderEmail) {
+            ObjectMapper objectMapper) {
 
-        this.mailSender = mailSender;
+        this.brevoApiKey = brevoApiKey;
         this.adminEmail = adminEmail;
-        this.senderEmail = senderEmail;
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newHttpClient();
     }
 
     @Async
     public void sendAdminReportEmail(IncidentReport report) {
 
-        try {
+        String subject =
+                "SENTINEL - New Incident Report #" + report.getId();
 
-            SimpleMailMessage message = new SimpleMailMessage();
+        String html =
+                "<h2>SENTINEL - New Incident Report</h2>" +
+                        "<p><strong>Report ID:</strong> " + report.getId() + "</p>" +
+                        "<p><strong>Reported By:</strong> " + report.getReportedBy() + "</p>" +
+                        "<p><strong>Vehicle Number:</strong> " + report.getVehicleNumber() + "</p>" +
+                        "<p><strong>Category:</strong> " + report.getCategory() + "</p>" +
+                        "<p><strong>Description:</strong> " + report.getDescription() + "</p>" +
+                        "<p><strong>Location:</strong> " + report.getLocation() + "</p>" +
+                        "<p><strong>Status:</strong> " + report.getStatus() + "</p>" +
+                        "<p><strong>Reported At:</strong> " + report.getReportedAt() + "</p>";
 
-            message.setFrom(senderEmail);
-            message.setTo(adminEmail);
-
-            message.setSubject(
-                    "SENTINEL - New Incident Report #" + report.getId()
-            );
-
-            message.setText(
-                    "SENTINEL - NEW INCIDENT REPORT\n\n" +
-
-                            "Report ID: " + report.getId() + "\n" +
-                            "Reported By: " + report.getReportedBy() + "\n" +
-                            "Vehicle Number: " + report.getVehicleNumber() + "\n" +
-                            "Category: " + report.getCategory() + "\n" +
-                            "Description: " + report.getDescription() + "\n" +
-                            "Location: " + report.getLocation() + "\n" +
-                            "Status: " + report.getStatus() + "\n" +
-                            "Reported At: " + report.getReportedAt()
-            );
-
-            mailSender.send(message);
-
-            System.out.println(
-                    "EMAIL: Admin notification sent for report #"
-                            + report.getId()
-            );
-
-        } catch (Exception e) {
-
-            System.err.println(
-                    "EMAIL: Failed to send admin email: "
-                            + e.getMessage()
-            );
-        }
+        sendEmail(
+                adminEmail,
+                subject,
+                html,
+                "admin",
+                report.getId()
+        );
     }
 
     @Async
@@ -72,48 +69,95 @@ public class EmailService {
             String citizenEmail,
             IncidentReport report) {
 
+        String subject =
+                "SENTINEL - Report Submitted Successfully";
+
+        String html =
+                "<h2>Your incident report has been submitted</h2>" +
+                        "<p>Your report was successfully received by SENTINEL.</p>" +
+                        "<p><strong>Report ID:</strong> " + report.getId() + "</p>" +
+                        "<p><strong>Vehicle Number:</strong> " + report.getVehicleNumber() + "</p>" +
+                        "<p><strong>Category:</strong> " + report.getCategory() + "</p>" +
+                        "<p><strong>Status:</strong> " + report.getStatus() + "</p>" +
+                        "<p>Please keep your Report ID to track your report in the SENTINEL app.</p>";
+
+        sendEmail(
+                citizenEmail,
+                subject,
+                html,
+                "citizen",
+                report.getId()
+        );
+    }
+
+    private void sendEmail(
+            String recipient,
+            String subject,
+            String html,
+            String emailType,
+            Long reportId) {
+
         try {
 
-            SimpleMailMessage message = new SimpleMailMessage();
-
-            message.setFrom(senderEmail);
-            message.setTo(citizenEmail);
-
-            message.setSubject(
-                    "SENTINEL - Report Submitted Successfully"
+            Map<String, Object> payload = Map.of(
+                    "sender", Map.of(
+                            "name", "SENTINEL",
+                            "email", SENDER_EMAIL
+                    ),
+                    "to", List.of(
+                            Map.of("email", recipient)
+                    ),
+                    "subject", subject,
+                    "htmlContent", html
             );
 
-            message.setText(
-                    "Your incident report has been submitted successfully.\n\n" +
+            String requestBody =
+                    objectMapper.writeValueAsString(payload);
 
-                            "Report ID: " + report.getId() + "\n" +
-                            "Vehicle Number: " + report.getVehicleNumber() + "\n" +
-                            "Category: " + report.getCategory() + "\n" +
-                            "Status: " + report.getStatus() + "\n\n" +
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BREVO_API_URL))
+                    .header("accept", "application/json")
+                    .header("api-key", brevoApiKey)
+                    .header("content-type", "application/json")
+                    .POST(
+                            HttpRequest.BodyPublishers.ofString(requestBody)
+                    )
+                    .build();
 
-                            "Please keep your Report ID to track the status " +
-                            "of your report in the SENTINEL app.\n\n" +
+            HttpResponse<String> response =
+                    httpClient.send(
+                            request,
+                            HttpResponse.BodyHandlers.ofString()
+                    );
 
-                            "SENTINEL\n" +
-                            "Citizen Safety and Incident Reporting"
-            );
+            if (response.statusCode() >= 200 &&
+                    response.statusCode() < 300) {
 
-            mailSender.send(message);
+                System.out.println(
+                        "BREVO: " + emailType +
+                                " email sent for report #" +
+                                reportId
+                );
 
-            System.out.println(
-                    "EMAIL: Citizen confirmation sent to "
-                            + citizenEmail
-                            + " for report #"
-                            + report.getId()
-            );
+            } else {
+
+                System.err.println(
+                        "BREVO: Failed to send " +
+                                emailType +
+                                " email. HTTP " +
+                                response.statusCode() +
+                                " - " +
+                                response.body()
+                );
+            }
 
         } catch (Exception e) {
 
             System.err.println(
-                    "EMAIL: Failed to send citizen email to "
-                            + citizenEmail
-                            + ": "
-                            + e.getMessage()
+                    "BREVO: Failed to send " +
+                            emailType +
+                            " email: " +
+                            e.getMessage()
             );
         }
     }
