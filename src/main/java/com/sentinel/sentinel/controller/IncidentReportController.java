@@ -31,7 +31,17 @@ public class IncidentReportController {
             @RequestBody IncidentReportRequest request,
             Authentication authentication) {
 
+        long start = System.currentTimeMillis();
+
+        System.out.println("CONTROLLER DEBUG: POST /reports started");
+
         String reportedBy = authentication.getName();
+
+        System.out.println(
+                "CONTROLLER DEBUG: authenticated user = " + reportedBy
+        );
+
+        long reportStart = System.currentTimeMillis();
 
         IncidentReport report = service.createReport(
                 request.getVehicleNumber(),
@@ -41,13 +51,36 @@ public class IncidentReportController {
                 reportedBy
         );
 
+        System.out.println(
+                "CONTROLLER DEBUG: createReport service completed in "
+                        + (System.currentTimeMillis() - reportStart)
+                        + " ms"
+        );
+
+        long guidanceStart = System.currentTimeMillis();
+
         GuidanceResponse guidance =
                 guidanceService.getGuidance(request.getCategory());
 
-        return new ReportSubmissionResponse(
-                report,
-                guidance
+        System.out.println(
+                "CONTROLLER DEBUG: guidance completed in "
+                        + (System.currentTimeMillis() - guidanceStart)
+                        + " ms"
         );
+
+        ReportSubmissionResponse response =
+                new ReportSubmissionResponse(
+                        report,
+                        guidance
+                );
+
+        System.out.println(
+                "CONTROLLER DEBUG: returning HTTP response after "
+                        + (System.currentTimeMillis() - start)
+                        + " ms"
+        );
+
+        return response;
     }
 
     @GetMapping
