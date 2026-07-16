@@ -9,25 +9,30 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @Service
 public class EmailService {
 
-    private static final String BREVO_API_URL =
-            "https://api.brevo.com/v3/smtp/email";
+    private static final String MAILJET_API_URL =
+            "https://api.mailjet.com/v3.1/send";
 
     private static final String SENDER_EMAIL =
             "app.sentinel.support@gmail.com";
 
-    private final String brevoApiKey;
+    private final String mailjetApiKey;
+    private final String mailjetSecretKey;
     private final String adminEmail;
     private final HttpClient httpClient;
 
     public EmailService(
-            @Value("${brevo.api.key}") String brevoApiKey,
+            @Value("${mailjet.api.key}") String mailjetApiKey,
+            @Value("${mailjet.secret.key}") String mailjetSecretKey,
             @Value("${sentinel.admin.email}") String adminEmail) {
 
-        this.brevoApiKey = brevoApiKey;
+        this.mailjetApiKey = mailjetApiKey;
+        this.mailjetSecretKey = mailjetSecretKey;
         this.adminEmail = adminEmail;
         this.httpClient = HttpClient.newHttpClient();
     }
@@ -95,22 +100,31 @@ public class EmailService {
 
             String jsonBody =
                     "{" +
-                            "\"sender\":{" +
-                            "\"name\":\"SENTINEL\"," +
-                            "\"email\":\"" + escapeJson(SENDER_EMAIL) + "\"" +
+                            "\"Messages\":[{" +
+                            "\"From\":{" +
+                            "\"Email\":\"" + escapeJson(SENDER_EMAIL) + "\"," +
+                            "\"Name\":\"SENTINEL\"" +
                             "}," +
-                            "\"to\":[{" +
-                            "\"email\":\"" + escapeJson(recipient) + "\"" +
+                            "\"To\":[{" +
+                            "\"Email\":\"" + escapeJson(recipient) + "\"" +
                             "}]," +
-                            "\"subject\":\"" + escapeJson(subject) + "\"," +
-                            "\"htmlContent\":\"" + escapeJson(html) + "\"" +
+                            "\"Subject\":\"" + escapeJson(subject) + "\"," +
+                            "\"HTMLPart\":\"" + escapeJson(html) + "\"" +
+                            "}]" +
                             "}";
 
+            String credentials =
+                    mailjetApiKey + ":" + mailjetSecretKey;
+
+            String basicAuth =
+                    Base64.getEncoder().encodeToString(
+                            credentials.getBytes(StandardCharsets.UTF_8)
+                    );
+
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(BREVO_API_URL))
-                    .header("accept", "application/json")
-                    .header("api-key", brevoApiKey)
-                    .header("content-type", "application/json")
+                    .uri(URI.create(MAILJET_API_URL))
+                    .header("Authorization", "Basic " + basicAuth)
+                    .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
@@ -124,15 +138,15 @@ public class EmailService {
                     response.statusCode() < 300) {
 
                 System.out.println(
-                        "BREVO: " + emailType +
-                                " email sent for report #" +
+                        "MAILJET: " + emailType +
+                                " email accepted for report #" +
                                 reportId
                 );
 
             } else {
 
                 System.err.println(
-                        "BREVO: Failed to send " +
+                        "MAILJET: Failed to send " +
                                 emailType +
                                 " email. HTTP " +
                                 response.statusCode() +
@@ -144,7 +158,7 @@ public class EmailService {
         } catch (Exception e) {
 
             System.err.println(
-                    "BREVO: Failed to send " +
+                    "MAILJET: Failed to send " +
                             emailType +
                             " email: " +
                             e.getMessage()
