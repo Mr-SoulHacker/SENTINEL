@@ -3,7 +3,9 @@ package com.sentinel.sentinel.service;
 import com.sentinel.sentinel.model.IncidentCategory;
 import com.sentinel.sentinel.model.IncidentReport;
 import com.sentinel.sentinel.model.ReportStatus;
+import com.sentinel.sentinel.model.User;
 import com.sentinel.sentinel.repository.IncidentReportRepository;
+import com.sentinel.sentinel.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,9 +14,17 @@ import java.util.List;
 public class IncidentReportService {
 
     private final IncidentReportRepository repository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
 
-    public IncidentReportService(IncidentReportRepository repository) {
+    public IncidentReportService(
+            IncidentReportRepository repository,
+            UserRepository userRepository,
+            EmailService emailService) {
+
         this.repository = repository;
+        this.userRepository = userRepository;
+        this.emailService = emailService;
     }
 
     public IncidentReport createReport(
@@ -33,7 +43,24 @@ public class IncidentReportService {
                 reportedBy
         );
 
-        return repository.save(report);
+        // Save the report first
+        IncidentReport savedReport = repository.save(report);
+
+        // Find the citizen using the authenticated username
+        User citizen = userRepository.findByUsername(reportedBy)
+                .orElseThrow(() ->
+                        new RuntimeException("Citizen account not found"));
+
+        // Send full incident report to SENTINEL admin
+        emailService.sendAdminReportEmail(savedReport);
+
+        // Send submission confirmation to citizen
+        emailService.sendCitizenConfirmationEmail(
+                citizen.getEmail(),
+                savedReport
+        );
+
+        return savedReport;
     }
 
     public List<IncidentReport> getAllReports() {
