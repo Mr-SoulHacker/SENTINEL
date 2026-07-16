@@ -35,6 +35,10 @@ public class IncidentReportService {
             String reportedBy
     ) {
 
+        long startTime = System.currentTimeMillis();
+
+        System.out.println("REPORT DEBUG: createReport started");
+
         IncidentReport report = new IncidentReport(
                 vehicleNumber,
                 category,
@@ -43,21 +47,61 @@ public class IncidentReportService {
                 reportedBy
         );
 
-        // Save the report first
+        System.out.println("REPORT DEBUG: IncidentReport object created");
+
+        // STEP 1 - Save report
+        long dbStart = System.currentTimeMillis();
+
         IncidentReport savedReport = repository.save(report);
 
-        // Find the citizen using the authenticated username
+        System.out.println(
+                "REPORT DEBUG: Database save completed in "
+                        + (System.currentTimeMillis() - dbStart)
+                        + " ms"
+        );
+
+        // STEP 2 - Find citizen
+        long userStart = System.currentTimeMillis();
+
         User citizen = userRepository.findByUsername(reportedBy)
                 .orElseThrow(() ->
                         new RuntimeException("Citizen account not found"));
 
-        // Send full incident report to SENTINEL admin
+        System.out.println(
+                "REPORT DEBUG: Citizen lookup completed in "
+                        + (System.currentTimeMillis() - userStart)
+                        + " ms"
+        );
+
+        // STEP 3 - Trigger admin email
+        long adminEmailStart = System.currentTimeMillis();
+
         emailService.sendAdminReportEmail(savedReport);
 
-        // Send submission confirmation to citizen
+        System.out.println(
+                "REPORT DEBUG: Admin email method returned in "
+                        + (System.currentTimeMillis() - adminEmailStart)
+                        + " ms"
+        );
+
+        // STEP 4 - Trigger citizen email
+        long citizenEmailStart = System.currentTimeMillis();
+
         emailService.sendCitizenConfirmationEmail(
                 citizen.getEmail(),
                 savedReport
+        );
+
+        System.out.println(
+                "REPORT DEBUG: Citizen email method returned in "
+                        + (System.currentTimeMillis() - citizenEmailStart)
+                        + " ms"
+        );
+
+        System.out.println(
+                "REPORT DEBUG: createReport finished in "
+                        + (System.currentTimeMillis() - startTime)
+                        + " ms"
         );
 
         return savedReport;
@@ -68,12 +112,15 @@ public class IncidentReportService {
     }
 
     public IncidentReport getReportById(Long id) {
+
         return repository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Report not found"));
     }
 
-    public List<IncidentReport> getReportsByVehicle(String vehicleNumber) {
+    public List<IncidentReport> getReportsByVehicle(
+            String vehicleNumber) {
+
         return repository.findByVehicleNumber(vehicleNumber);
     }
 
@@ -83,7 +130,9 @@ public class IncidentReportService {
                 .orElseThrow(() ->
                         new RuntimeException("Report not found"));
 
-        report.setStatus(ReportStatus.UNDER_INVESTIGATION);
+        report.setStatus(
+                ReportStatus.UNDER_INVESTIGATION
+        );
 
         return repository.save(report);
     }
@@ -94,7 +143,9 @@ public class IncidentReportService {
                 .orElseThrow(() ->
                         new RuntimeException("Report not found"));
 
-        report.setStatus(ReportStatus.RESOLVED);
+        report.setStatus(
+                ReportStatus.RESOLVED
+        );
 
         return repository.save(report);
     }
